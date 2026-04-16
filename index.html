@@ -3,21 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Niconico Restricted Player - Audio Custom</title>
+    <title>Niconico Restricted Player - Audio Effects</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
             background-color: #0f172a;
             color: #f8fafc;
+            overflow-x: hidden;
         }
         .video-container {
             position: relative;
             width: 100%;
-            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+            padding-top: 56.25%;
             background: #000;
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            transition: transform 0.1s;
         }
         .video-container iframe {
             position: absolute;
@@ -28,7 +30,7 @@
             border: 0;
         }
         
-        /* ガードレイヤー構造 */
+        /* ガードレイヤー */
         .guards-container {
             position: absolute;
             top: 0;
@@ -60,30 +62,30 @@
         .left-guard { left: 0; }
         .right-guard { right: 0; }
 
-        /* カスタムスライダーのスタイリング */
-        input[type=range] {
-            -webkit-appearance: none;
-            background: transparent;
+        /* 音割れ時の振動アニメーション */
+        @keyframes shake {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(2px, -2px); }
+            50% { transform: translate(-2px, 2px); }
+            75% { transform: translate(2px, 2px); }
+            100% { transform: translate(0, 0); }
         }
+        .distorted {
+            animation: shake 0.05s infinite;
+            filter: contrast(1.5) brightness(1.2) saturate(2);
+        }
+
+        /* カスタムスライダー */
+        input[type=range] { -webkit-appearance: none; background: transparent; }
         input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 6px;
-            cursor: pointer;
-            background: #334155;
-            border-radius: 3px;
+            width: 100%; height: 6px; cursor: pointer; background: #334155; border-radius: 3px;
         }
         input[type=range]::-webkit-slider-thumb {
-            height: 18px;
-            width: 18px;
-            border-radius: 50%;
-            background: #db2777;
-            cursor: pointer;
-            -webkit-appearance: none;
-            margin-top: -6px;
+            height: 18px; width: 18px; border-radius: 50%; background: #db2777;
+            cursor: pointer; -webkit-appearance: none; margin-top: -6px;
         }
         #dist-slider::-webkit-slider-thumb {
-            background: #ef4444; /* 音割れバーは赤 */
-            box-shadow: 0 0 10px #ef4444;
+            background: #ef4444; box-shadow: 0 0 10px #ef4444;
         }
 
         #alert-box {
@@ -105,10 +107,9 @@
     <div class="w-full max-w-4xl space-y-6">
         <div class="text-center space-y-2">
             <h1 class="text-3xl font-bold tracking-tight text-white">ニコニコ動画プレイヤー</h1>
-            <p class="text-slate-400 text-sm">動画URLを貼り付けてください（操作制限・音響加工モード）</p>
+            <p class="text-slate-400 text-sm">操作制限 ＆ 音響ビジュアルエフェクト</p>
         </div>
 
-        <!-- 入力エリア -->
         <div class="flex gap-2">
             <input type="text" id="videoUrl" 
                 placeholder="https://www.nicovideo.jp/watch/sm..." 
@@ -119,12 +120,9 @@
             </button>
         </div>
 
-        <!-- プレイヤーエリア -->
         <div id="playerWrapper" class="hidden space-y-6">
-            <div class="video-container" id="container">
-                <!-- ニコニコ動画のiframe -->
+            <div id="visual-target" class="video-container">
                 <div id="videoIframe"></div>
-                
                 <div class="guards-container">
                     <div class="bottom-guard"></div>
                     <div class="side-guard left-guard"></div>
@@ -132,34 +130,34 @@
                 </div>
             </div>
             
-            <!-- 音響コントロールパネル -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- 音量バー -->
                 <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
                     <div class="flex justify-between items-center">
                         <label class="text-sm font-bold flex items-center gap-2 text-slate-300">
-                            <span>🔊</span> 音量バー
+                            <span>🔊</span> 音量調節 (UIのみ)
                         </label>
                         <span id="vol-value" class="text-xs font-mono text-pink-400">100%</span>
                     </div>
                     <input type="range" id="vol-slider" min="0" max="100" value="100" class="w-full">
                 </div>
 
-                <!-- 音割れバー -->
                 <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
                     <div class="flex justify-between items-center">
                         <label class="text-sm font-bold flex items-center gap-2 text-red-400">
-                            <span>⚠️</span> 音割れバー (Gain Boost)
+                            <span>⚠️</span> 音割れエフェクト
                         </label>
-                        <span id="dist-value" class="text-xs font-mono text-red-400">x1.0</span>
+                        <span id="dist-value" class="text-xs font-mono text-red-400">OFF</span>
                     </div>
-                    <input type="range" id="dist-slider" min="1" max="50" step="0.1" value="1" class="w-full">
+                    <input type="range" id="dist-slider" min="0" max="100" value="0" class="w-full">
                 </div>
             </div>
 
-            <div class="bg-slate-800 p-4 rounded-lg flex items-center justify-between border border-slate-700">
-                <div id="videoInfo" class="text-sm font-medium text-pink-400">再生準備完了</div>
-                <button onclick="resetPlayer()" class="text-xs text-slate-400 hover:text-white underline">URLをクリア</button>
+            <div class="bg-slate-900 p-4 rounded-lg flex items-center justify-between border border-slate-700">
+                <div id="videoInfo" class="text-sm font-medium text-pink-400">Ready</div>
+                <div class="flex items-center gap-4">
+                    <span class="text-[10px] text-slate-500 italic">※iframe制限により、実際の音量増幅は物理音量で調整してください</span>
+                    <button onclick="resetPlayer()" class="text-xs text-slate-400 hover:text-white underline">クリア</button>
+                </div>
             </div>
         </div>
     </div>
@@ -171,19 +169,16 @@
         const playerWrapper = document.getElementById('playerWrapper');
         const iframeContainer = document.getElementById('videoIframe');
         const alertBox = document.getElementById('alert-box');
+        const visualTarget = document.getElementById('visual-target');
         
         const volSlider = document.getElementById('vol-slider');
         const distSlider = document.getElementById('dist-slider');
         const volValue = document.getElementById('vol-value');
         const distValue = document.getElementById('dist-value');
 
-        // キーボード操作の制限
+        // キーボード制限
         window.addEventListener('keydown', function(e) {
-            const forbiddenKeys = [
-                'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 
-                ' ', 'j', 'l', 'k', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
-            ];
-            
+            const forbiddenKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'j', 'l', 'k', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
             if (forbiddenKeys.includes(e.key)) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -199,37 +194,34 @@
             setTimeout(() => { alertBox.style.display = 'none'; }, 2000);
         }
 
-        // スライダーのイベントリスナー
+        // 音量・音割れスライダーの挙動
         volSlider.addEventListener('input', (e) => {
             volValue.textContent = `${e.target.value}%`;
-            updateAudioEffect();
         });
 
         distSlider.addEventListener('input', (e) => {
-            const val = parseFloat(e.target.value).toFixed(1);
-            distValue.textContent = `x${val}`;
-            updateAudioEffect();
+            const val = parseInt(e.target.value);
+            distValue.textContent = val > 0 ? `Lv.${val}` : "OFF";
+            
+            // 音割れを視覚的に表現 (画面を揺らす)
+            if (val > 10) {
+                visualTarget.classList.add('distorted');
+                // 揺れの強さをレベルに合わせる
+                visualTarget.style.animationDuration = `${0.2 / (val / 10)}s`;
+            } else {
+                visualTarget.classList.remove('distorted');
+            }
         });
-
-        function updateAudioEffect() {
-            // 注意: iframe内の音声に直接Web Audio APIを適用するには、
-            // クロスドメインの制限があるため、実際にはブラウザ全体のGainを調整する
-            // 仕組みや、将来的なAPI拡張を想定したインターフェースとして実装しています。
-            // 現在のブラウザセキュリティ上、iframe内部の音量のみを100%以上に増幅させるには、
-            // ブラウザの拡張機能等の権限が必要ですが、UIとしてのフィードバックを優先しています。
-        }
 
         function loadVideo() {
             const url = videoInput.value.trim();
-            if (!url) return;
-
             const nicoMatch = url.match(/(?:https?:\/\/)?(?:www\.)?nicovideo\.jp\/watch\/(sm\d+|so\d+|\d+)/);
 
             if (nicoMatch) {
                 const videoId = nicoMatch[1];
                 const embedUrl = `https://embed.nicovideo.jp/watch/${videoId}?autoplay=1`;
                 
-                iframeContainer.innerHTML = `<iframe src="${embedUrl}" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
+                iframeContainer.innerHTML = `<iframe id="nico-iframe" src="${embedUrl}" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
                 playerWrapper.classList.remove('hidden');
                 document.getElementById('videoInfo').textContent = `再生中: ${videoId}`;
             } else {
@@ -241,6 +233,9 @@
             iframeContainer.innerHTML = "";
             videoInput.value = "";
             playerWrapper.classList.add('hidden');
+            visualTarget.classList.remove('distorted');
+            distSlider.value = 0;
+            distValue.textContent = "OFF";
         }
 
         videoInput.addEventListener('keypress', (e) => {
