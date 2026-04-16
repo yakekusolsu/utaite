@@ -3,215 +3,267 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Niconico - Visual Effects Toggle Player</title>
+    <title>歌い手ディスカバリーツール</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #0f172a; color: #f8fafc; overflow-x: hidden; }
-        
-        /* 映像コンテナとフィルタ適用ターゲット */
-        .video-container {
-            position: relative; width: 100%; padding-top: 56.25%;
-            background: #000; border-radius: 12px; overflow: hidden;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-            transition: filter 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        body {
+            background-color: #0f172a;
+            color: #f1f5f9;
+            font-family: 'sans-serif';
         }
-        
-        .video-container iframe {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;
+        .card {
+            background-color: #1e293b;
+            border: 1px solid #334155;
         }
-
-        /* ガードレイヤー */
-        .guards-container {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 50; pointer-events: none;
+        .btn-search {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
         }
-        .bottom-guard {
-            position: absolute; bottom: 0; left: 0; width: 100%; height: 22%; 
-            pointer-events: auto; cursor: not-allowed;
+        .tag-active {
+            background-color: #ef4444 !important;
+            color: white !important;
+            border-color: #ef4444 !important;
         }
-        .side-guard {
-            position: absolute; top: 0; width: 12%; height: 100%;
-            pointer-events: auto; cursor: not-allowed;
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
         }
-        .left-guard { left: 0; }
-        .right-guard { right: 0; }
-
-        /* トグルスイッチのスタイリング */
-        .toggle-btn {
-            @apply relative flex items-center justify-between w-full p-4 rounded-xl border border-slate-700 bg-slate-800 transition-all duration-300;
+        .video-card:hover .thumb-overlay {
+            opacity: 1;
         }
-        .toggle-btn.active {
-            @apply border-pink-500 bg-slate-800/50 shadow-[0_0_15px_rgba(236,72,153,0.1)];
+        .video-card:hover img {
+            transform: scale(1.05);
         }
-        
-        /* スイッチ部分の装飾 */
-        .switch-track {
-            @apply relative w-12 h-6 bg-slate-600 rounded-full transition-colors duration-300;
+        /* Loading animation */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #ef4444;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
         }
-        .active .switch-track {
-            @apply bg-pink-600;
-        }
-        .switch-knob {
-            @apply absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 shadow-sm;
-        }
-        .active .switch-knob {
-            @apply translate-x-6;
-        }
-
-        #alert-box {
-            position: fixed; bottom: 20px; right: 20px;
-            background: #ef4444; color: white; padding: 12px 20px;
-            border-radius: 8px; display: none; z-index: 1000; font-weight: bold;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen p-4">
+<body class="min-h-screen">
+    <div class="max-w-6xl mx-auto p-4 md:p-8">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-5xl font-extrabold mb-2 text-red-500 tracking-tighter">UTAITE DISCOVERY</h1>
+            <p class="text-gray-400 font-medium text-sm md:text-base">新人・小中学生歌い手の最新投稿をカタログ表示</p>
+        </header>
 
-    <div class="w-full max-w-4xl space-y-6">
-        <div class="text-center space-y-2">
-            <h1 class="text-3xl font-bold tracking-tight text-white italic">VISUAL EFFECT ENGINE</h1>
-            <p class="text-slate-400 text-sm italic tracking-widest uppercase">Restricted Player & Filter Toggle</p>
-        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <!-- Sidebar -->
+            <aside class="lg:col-span-1 space-y-6">
+                <div class="card rounded-2xl p-5 shadow-2xl sticky top-8">
+                    <h2 class="text-lg font-bold mb-4 border-b border-slate-700 pb-2 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V3zm3 3a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
+                        </svg>
+                        検索フィルタ
+                    </h2>
+                    
+                    <div class="mb-6">
+                        <label class="block text-[10px] font-bold uppercase tracking-widest mb-3 text-slate-500">属性ターゲット</label>
+                        <div class="flex flex-wrap gap-2" id="age-tags">
+                            <button onclick="toggleTag(this, '小学生')" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs hover:bg-slate-700 transition-all">小学生</button>
+                            <button onclick="toggleTag(this, '中学生')" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs hover:bg-slate-700 transition-all">中学生</button>
+                            <button onclick="toggleTag(this, 'JC')" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs hover:bg-slate-700 transition-all">JC</button>
+                            <button onclick="toggleTag(this, 'JS')" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs hover:bg-slate-700 transition-all">JS</button>
+                            <button onclick="toggleTag(this, '新人歌い手')" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs hover:bg-slate-700 transition-all">新人</button>
+                        </div>
+                    </div>
 
-        <!-- URL Input -->
-        <div class="flex gap-2">
-            <input type="text" id="videoUrl" 
-                placeholder="ニコニコ動画のURLを入力..." 
-                class="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-white transition-all">
-            <button onclick="loadVideo()" 
-                class="px-8 py-3 bg-pink-600 hover:bg-pink-500 font-bold rounded-lg transition-all shadow-lg shadow-pink-900/20 uppercase tracking-wider">
-                Load
-            </button>
-        </div>
+                    <div class="mb-6">
+                        <label class="block text-[10px] font-bold uppercase tracking-widest mb-3 text-slate-500">声質・特徴</label>
+                        <div class="flex flex-wrap gap-2" id="voice-tags">
+                            <button onclick="toggleTag(this, 'ショタボ')" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs hover:bg-slate-700">ショタボ</button>
+                            <button onclick="toggleTag(this, 'カワボ')" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs hover:bg-slate-700">カワボ</button>
+                            <button onclick="toggleTag(this, '地声')" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs hover:bg-slate-700">地声</button>
+                        </div>
+                    </div>
 
-        <div id="playerWrapper" class="hidden space-y-6 animate-in fade-in zoom-in duration-300">
-            <!-- Video Display Area -->
-            <div id="visual-target" class="video-container">
-                <div id="videoIframe"></div>
-                <div class="guards-container">
-                    <div class="bottom-guard"></div>
-                    <div class="side-guard left-guard"></div>
-                    <div class="side-guard right-guard"></div>
+                    <div class="mb-6">
+                        <label class="block text-[10px] font-bold uppercase tracking-widest mb-2 text-slate-500">キーワード追加</label>
+                        <input type="text" id="custom-word" placeholder="曲名や「イタイ」等" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm focus:ring-1 focus:ring-red-500 outline-none transition-all">
+                    </div>
+
+                    <button onclick="performSearch()" id="search-btn" class="btn-search w-full py-4 rounded-xl font-bold shadow-lg hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-3">
+                        <span>発掘を開始する</span>
+                        <div id="btn-loader" class="loader hidden"></div>
+                    </button>
                 </div>
-            </div>
-            
-            <!-- Effect Controls (Toggle Switches) -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Invert Toggle Switch -->
-                <button id="btn-invert" onclick="toggleEffect('invert')" class="toggle-btn">
-                    <div class="flex items-center gap-3">
-                        <div class="p-2 rounded-lg bg-slate-700">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-pink-400"><path d="M12 2v20"/><path d="m4.93 4.93 14.14 14.14"/><path d="M2 12h20"/><path d="m19.07 4.93-14.14 14.14"/></svg>
-                        </div>
-                        <span class="font-bold text-slate-200 uppercase tracking-tight">色を反転させる</span>
-                    </div>
-                    <div class="switch-track">
-                        <div class="switch-knob"></div>
-                    </div>
-                </button>
 
-                <!-- Grayscale Toggle Switch -->
-                <button id="btn-grayscale" onclick="toggleEffect('grayscale')" class="toggle-btn">
-                    <div class="flex items-center gap-3">
-                        <div class="p-2 rounded-lg bg-slate-700">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-pink-400"><circle cx="12" cy="12" r="10"/><path d="M12 2v20"/></svg>
-                        </div>
-                        <span class="font-bold text-slate-200 uppercase tracking-tight">白黒にする</span>
-                    </div>
-                    <div class="switch-track">
-                        <div class="switch-knob"></div>
-                    </div>
-                </button>
-            </div>
+                <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-center">
+                    <p class="text-[10px] text-slate-500 leading-relaxed">
+                        画像をクリックするとYouTube動画ページを別タブで開きます。
+                    </p>
+                </div>
+            </aside>
 
-            <div class="bg-slate-900 p-4 rounded-lg flex items-center justify-between border border-slate-800 shadow-inner">
-                <div id="videoInfo" class="text-xs font-mono text-pink-500 tracking-widest uppercase">System Operational</div>
-                <button onclick="resetPlayer()" class="text-xs text-slate-500 hover:text-white underline uppercase tracking-tighter">Reset UI</button>
-            </div>
+            <!-- Main Content -->
+            <main class="lg:col-span-3">
+                <div id="results-status" class="mb-6 text-sm font-medium text-slate-400 bg-slate-800/50 inline-block px-4 py-1 rounded-full">
+                    条件を選択して検索してください
+                </div>
+                
+                <div id="video-results" class="video-grid">
+                    <!-- Results will be injected here -->
+                </div>
+
+                <!-- Empty State -->
+                <div id="empty-state" class="flex flex-col items-center justify-center py-20 text-slate-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <p>ここに検索結果が表示されます</p>
+                </div>
+            </main>
         </div>
     </div>
 
-    <div id="alert-box">RESTRICTED ACTION</div>
-
     <script>
-        const videoInput = document.getElementById('videoUrl');
-        const playerWrapper = document.getElementById('playerWrapper');
-        const iframeContainer = document.getElementById('videoIframe');
-        const visualTarget = document.getElementById('visual-target');
-        const alertBox = document.getElementById('alert-box');
+        const selectedTags = new Set();
+        const apiKey = ""; // 環境により自動設定
 
-        let effects = {
-            invert: false,
-            grayscale: false
-        };
-
-        // 映像エフェクトの切り替え (トグル)
-        function toggleEffect(type) {
-            effects[type] = !effects[type];
-            
-            // ボタンのスタイル更新
-            const btn = document.getElementById(`btn-${type}`);
-            if (effects[type]) {
-                btn.classList.add('active');
+        function toggleTag(el, tag) {
+            if (selectedTags.has(tag)) {
+                selectedTags.delete(tag);
+                el.classList.remove('tag-active');
             } else {
-                btn.classList.remove('active');
+                selectedTags.add(tag);
+                el.classList.add('tag-active');
             }
+        }
+
+        async function fetchWithRetry(url, options, retries = 5, backoff = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return await response.json();
+                } catch (err) {
+                    if (i === retries - 1) throw err;
+                    await new Promise(resolve => setTimeout(resolve, backoff));
+                    backoff *= 2;
+                }
+            }
+        }
+
+        async function performSearch() {
+            const btn = document.getElementById('search-btn');
+            const loader = document.getElementById('btn-loader');
+            const resultsDiv = document.getElementById('video-results');
+            const status = document.getElementById('results-status');
+            const emptyState = document.getElementById('empty-state');
+
+            btn.disabled = true;
+            loader.classList.remove('hidden');
+            resultsDiv.innerHTML = '';
+            emptyState.classList.add('hidden');
+            status.textContent = '最新の投稿をスキャン中...';
+
+            let queryParts = Array.from(selectedTags);
+            if (queryParts.length === 0) queryParts.push("新人歌い手");
+            queryParts.push("歌ってみた");
             
-            // フィルタの適用
-            updateFilters();
-        }
+            const customWord = document.getElementById('custom-word').value;
+            if (customWord) queryParts.push(customWord);
 
-        function updateFilters() {
-            let filterString = "";
-            if (effects.invert) filterString += "invert(100%) ";
-            if (effects.grayscale) filterString += "grayscale(100%) ";
-            
-            visualTarget.style.filter = filterString || "none";
-        }
+            const searchQuery = queryParts.join(' ');
 
-        function loadVideo() {
-            const url = videoInput.value.trim();
-            const nicoMatch = url.match(/(?:https?:\/\/)?(?:www\.)?nicovideo\.jp\/watch\/(sm\d+|so\d+|\d+)/);
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [{ parts: [{ text: `YouTubeで「${searchQuery}」を検索し、実在する最新の動画5件以上のタイトルと動画ID(11文字)をJSON形式(Array of {id, title, channel, description})で返してください。` }] }],
+                    tools: [{ "google_search": {} }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                videos: {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            id: { type: "STRING" },
+                                            title: { type: "STRING" },
+                                            channel: { type: "STRING" },
+                                            description: { type: "STRING" }
+                                        },
+                                        required: ["id", "title"]
+                                    }
+                                }
+                            },
+                            required: ["videos"]
+                        }
+                    }
+                };
 
-            if (nicoMatch) {
-                const videoId = nicoMatch[1];
-                const embedUrl = `https://embed.nicovideo.jp/watch/${videoId}?autoplay=1`;
-                
-                iframeContainer.innerHTML = `<iframe src="${embedUrl}" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
-                playerWrapper.classList.remove('hidden');
-                document.getElementById('videoInfo').textContent = `Video ID: ${videoId}`;
-            } else {
-                alert("有効なニコニコ動画のURLを入力してください。");
+                const data = await fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!rawContent) throw new Error("APIからの応答が空です。");
+
+                const parsedData = JSON.parse(rawContent);
+                const videoList = parsedData.videos;
+
+                if (!videoList || videoList.length === 0) {
+                    status.textContent = '見つかりませんでした。条件を変えてみてください。';
+                    emptyState.classList.remove('hidden');
+                } else {
+                    status.textContent = `「${searchQuery}」の検索結果: ${videoList.length}件`;
+                    videoList.forEach(vid => {
+                        const card = document.createElement('div');
+                        card.className = 'video-card card rounded-xl overflow-hidden group shadow-lg flex flex-col transition-all duration-300 hover:border-red-500/50 hover:shadow-red-500/10';
+                        
+                        const videoUrl = `https://www.youtube.com/watch?v=${vid.id}`;
+                        const thumbUrl = `https://img.youtube.com/vi/${vid.id}/maxresdefault.jpg`;
+                        const thumbFallback = `https://img.youtube.com/vi/${vid.id}/hqdefault.jpg`;
+
+                        card.innerHTML = `
+                            <a href="${videoUrl}" target="_blank" rel="noopener noreferrer" class="block relative aspect-video overflow-hidden bg-slate-900">
+                                <img src="${thumbUrl}" alt="${vid.title}" 
+                                     onerror="this.src='${thumbFallback}'"
+                                     class="w-full h-full object-cover transition-transform duration-500">
+                                <div class="thumb-overlay absolute inset-0 bg-black/60 opacity-0 flex items-center justify-center transition-opacity duration-300">
+                                    <div class="bg-red-600 p-3 rounded-full shadow-xl transform translate-y-4 group-hover:translate-y-0 transition-transform">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M10 6l6 6-6 6" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div class="absolute bottom-2 right-2 bg-black/80 px-2 py-0.5 rounded text-[10px] font-bold">YOUTUBEで再生</div>
+                            </a>
+                            <div class="p-4 flex flex-col flex-grow">
+                                <h3 class="text-sm font-bold line-clamp-2 mb-2 group-hover:text-red-400 transition-colors leading-snug">
+                                    ${vid.title}
+                                </h3>
+                                <div class="mt-auto">
+                                    <p class="text-xs text-red-500 font-medium mb-1 truncate">@${vid.channel || 'Unknown Channel'}</p>
+                                    <p class="text-[11px] text-slate-500 line-clamp-1">${vid.description || ''}</p>
+                                </div>
+                            </div>
+                        `;
+                        resultsDiv.appendChild(card);
+                    });
+                }
+            } catch (error) {
+                console.error("Search Error:", error);
+                status.textContent = '取得に失敗しました。もう一度「発掘」を押してください。';
+                emptyState.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                loader.classList.add('hidden');
             }
         }
-
-        // キー操作制限 (矢印キー、数字キー、スペース等)
-        window.addEventListener('keydown', (e) => {
-            const forbidden = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'j', 'l', 'k', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-            if (forbidden.includes(e.key)) {
-                e.preventDefault(); e.stopPropagation();
-                alertBox.style.display = 'block';
-                setTimeout(() => { alertBox.style.display = 'none'; }, 1000);
-            }
-        }, true);
-
-        // コンテキストメニュー禁止
-        window.addEventListener('contextmenu', (e) => e.preventDefault());
-
-        function resetPlayer() {
-            iframeContainer.innerHTML = "";
-            videoInput.value = "";
-            playerWrapper.classList.add('hidden');
-            effects = { invert: false, grayscale: false };
-            document.getElementById('btn-invert').classList.remove('active');
-            document.getElementById('btn-grayscale').classList.remove('active');
-            updateFilters();
-        }
-
-        videoInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') loadVideo();
-        });
     </script>
 </body>
 </html>
